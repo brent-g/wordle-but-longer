@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wordle Grid Converter</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        h1 {
+            text-align: center;
+            color: #6aaa64;
+        }
+        .input-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+            border: 2px solid #444;
+            border-radius: 4px;
+            box-sizing: border-box;
+            background: #1a1a1a;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #6aaa64;
+        }
+        .result {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            min-height: 150px;
+            overflow-x: auto;
+            position: relative;
+        }
+        .score {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #6aaa64;
+        }
+        .pixel-grid {
+            display: inline-block;
+            line-height: 1;
+            font-size: 12px;
+            white-space: pre;
+            font-family: 'Courier New', monospace;
+        }
+        .pixel {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin: 0;
+        }
+        .green {
+            background-color: #6aaa64;
+        }
+        .yellow {
+            background-color: #c9b458;
+        }
+        .instructions {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #6aaa64;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #6aaa64;
+        }
+        .instructions ul {
+            margin: 10px 0;
+        }
+        .grid-row {
+            white-space: nowrap;
+            line-height: 14px;
+        }
+        .copy-button {
+            background: #6aaa64;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            transition: background 0.2s;
+        }
+        .copy-button:hover {
+            background: #5a9a54;
+        }
+        .copy-button:active {
+            background: #4a8a44;
+        }
+        .copy-button.copied {
+            background: #c9b458;
+        }
+        .shareable-preview {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            border: 1px solid #444;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Wordle Pixel Art Converter</h1>
+    
+    <div class="instructions">
+        <h3>How to use:</h3>
+        <ul>
+            <li><strong>UPPERCASE letters</strong> = Green pixels (correct position) = 10 points each</li>
+            <li><strong>lowercase letters</strong> = Yellow pixels (present, wrong position) = 5 points each</li>
+            <li>Each letter is drawn as pixel art!</li>
+            <li>Click "Copy to Clipboard" to share like Wordle!</li>
+            <li><strong>3x3 Size:</strong> Fewer emojis = better chance of matte appearance in Discord</li>
+            <li><strong>5x5 Size:</strong> More detailed letters but may appear glossy in Discord</li>
+        </ul>
+    </div>
+
+    <div class="input-section">
+        <input 
+            type="text" 
+            id="textInput" 
+            placeholder="Type something like: HI or HELLO WORLD (spaces = line breaks)"
+            value="HI"
+            maxlength="50"
+        >
+    </div>
+
+    <div class="result" id="result">
+        <!-- Grid will appear here -->
+    </div>
+
+    <script>
+        const letterPatterns = {
+            'A': ['01110','10001','11111','10001','10001'],
+            'B': ['11110','10001','11110','10001','11110'],
+            'C': ['01110','10001','10000','10001','01110'],
+            'D': ['11110','10001','10001','10001','11110'],
+            'E': ['11111','10000','11110','10000','11111'],
+            'F': ['11111','10000','11110','10000','10000'],
+            'G': ['01110','10000','10011','10001','01110'],
+            'H': ['10001','10001','11111','10001','10001'],
+            'I': ['11111','00100','00100','00100','11111'],
+            'J': ['11111','00010','00010','10010','01100'],
+            'K': ['10001','10010','11100','10010','10001'],
+            'L': ['10000','10000','10000','10000','11111'],
+            'M': ['10001','11011','10101','10001','10001'],
+            'N': ['10001','11001','10101','10011','10001'],
+            'O': ['01110','10001','10001','10001','01110'],
+            'P': ['11110','10001','11110','10000','10000'],
+            'Q': ['01110','10001','10001','10101','01111'],
+            'R': ['11110','10001','11110','10010','10001'],
+            'S': ['01111','10000','01110','00001','11110'],
+            'T': ['11111','00100','00100','00100','00100'],
+            'U': ['10001','10001','10001','10001','01110'],
+            'V': ['10001','10001','10001','01010','00100'],
+            'W': ['10001','10001','10101','11011','10001'],
+            'X': ['10001','01010','00100','01010','10001'],
+            'Y': ['10001','01010','00100','00100','00100'],
+            'Z': ['11111','00010','00100','01000','11111'],
+            ' ': ['00000','00000','00000','00000','00000']
+        };
+
+        const letterPatterns3x3 = {
+            'A': ['010','111','101'],
+            'B': ['110','110','110'],
+            'C': ['110','100','110'],
+            'D': ['110','101','110'],
+            'E': ['111','110','111'],
+            'F': ['111','110','100'],
+            'G': ['110','101','111'],
+            'H': ['101','111','101'],
+            'I': ['111','010','111'],
+            'J': ['111','001','110'],
+            'K': ['101','110','101'],
+            'L': ['100','100','111'],
+            'M': ['101','111','101'],
+            'N': ['110','101','101'],
+            'O': ['010','101','010'],
+            'P': ['110','110','100'],
+            'Q': ['010','101','011'],
+            'R': ['110','110','101'],
+            'S': ['011','010','110'],
+            'T': ['111','010','010'],
+            'U': ['101','101','111'],
+            'V': ['101','101','010'],
+            'W': ['101','111','101'],
+            'X': ['101','010','101'],
+            'Y': ['101','010','010'],
+            'Z': ['111','010','111'],
+            ' ': ['000','000','000']
+        };
+
+        let currentShareableText = '';
+        let darkMode = false;
+        let use3x3 = false;
+
+        function createWordleGrid(text) {
+            if (!text) return '<p style="color: #999;">Type something to see the pixel art...</p>';
+            
+            // Split by spaces to create separate words/lines
+            const words = text.split(' ').filter(w => w.length > 0);
+            
+            const totalLetters = text.replace(/[^a-zA-Z]/g, '').length;
+            const correctLetters = (text.match(/[A-Z]/g) || []).length;
+            const presentLetters = (text.match(/[a-z]/g) || []).length;
+            const score = correctLetters * 10 + presentLetters * 5;
+            
+            // Use proper block characters for matte/flat appearance
+            const emptySquare = darkMode ? '⬛' : '⬜';
+            
+            // Select pattern set based on toggle
+            const patterns = use3x3 ? letterPatterns3x3 : letterPatterns;
+            const gridSize = use3x3 ? 3 : 5;
+            
+            let html = `<div class="score">Wordle ${text.replace(/ /g, '').length}/${totalLetters} (${correctLetters} correct, ${presentLetters} present)</div>`;
+            html += '<div class="pixel-grid">';
+            
+            // Create shareable text header
+            currentShareableText = `Wordle ${text.replace(/ /g, '').length}/${totalLetters}\n\n`;
+            
+            // Process each word separately
+            for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
+                const word = words[wordIndex];
+                const chars = word.toUpperCase().split('');
+                const grid = Array(gridSize).fill('').map(() => '');
+                const emojiGrid = Array(gridSize).fill('').map(() => '');
+                
+                for (let i = 0; i < chars.length; i++) {
+                    const char = chars[i];
+                    const originalChar = word[i];
+                    const isUpperCase = originalChar >= 'A' && originalChar <= 'Z';
+                    const pattern = patterns[char] || patterns[' '];
+                    const colorClass = isUpperCase ? 'green' : 'yellow';
+                    const emoji = isUpperCase ? '🟩' : '🟨';
+                    
+                    if (i > 0) {
+                        for (let row = 0; row < gridSize; row++) {
+                            grid[row] += '<span class="pixel"></span>'; // Space between letters
+                            emojiGrid[row] += emptySquare;
+                        }
+                    }
+                    
+                    for (let row = 0; row < gridSize; row++) {
+                        for (let col = 0; col < pattern[row].length; col++) {
+                            if (pattern[row][col] === '1') {
+                                grid[row] += `<span class="pixel ${colorClass}"></span>`;
+                                emojiGrid[row] += emoji;
+                            } else {
+                                grid[row] += '<span class="pixel"></span>';
+                                emojiGrid[row] += emptySquare;
+                            }
+                        }
+                    }
+                }
+                
+                // Add this word's grid to HTML
+                for (let row = 0; row < gridSize; row++) {
+                    html += `<div class="grid-row">${grid[row]}</div>`;
+                }
+                
+                // Add this word's emoji grid to shareable text
+                currentShareableText += emojiGrid.join('\n');
+                
+                // Add line break between words if not the last word
+                if (wordIndex < words.length - 1) {
+                    html += '<div style="height: 10px;"></div>'; // Visual spacing
+                    currentShareableText += '\n\n';
+                }
+            }
+            
+            html += '</div>';
+            
+            const modeIcon = darkMode ? '☀️' : '🌙';
+            const modeText = darkMode ? 'Light Mode' : 'Dark Mode';
+            const sizeIcon = use3x3 ? '🔍' : '🔎';
+            const sizeText = use3x3 ? '5x5 Size' : '3x3 Size';
+            
+            html += '<div style="margin-top: 15px;">';
+            html += '<button class="copy-button" onclick="copyToClipboard()">📋 Copy to Clipboard</button>';
+            html += `<button class="copy-button" onclick="toggleDarkMode()" style="margin-left: 10px;">${modeIcon} ${modeText}</button>`;
+            html += `<button class="copy-button" onclick="toggleSize()" style="margin-left: 10px;">${sizeIcon} ${sizeText}</button>`;
+            html += '</div>';
+            html += `<div class="shareable-preview">${currentShareableText}</div>`;
+            
+            return html;
+        }
+
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            updateGrid();
+        }
+
+        function toggleSize() {
+            use3x3 = !use3x3;
+            updateGrid();
+        }
+
+        async function copyToClipboard() {
+            try {
+                await navigator.clipboard.writeText(currentShareableText);
+                const button = document.querySelector('.copy-button');
+                const originalText = button.textContent;
+                button.textContent = '✓ Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                alert('Failed to copy to clipboard. Please try again.');
+            }
+        }
+
+        const input = document.getElementById('textInput');
+        const result = document.getElementById('result');
+
+        function updateGrid() {
+            result.innerHTML = createWordleGrid(input.value);
+        }
+
+        input.addEventListener('input', updateGrid);
+        updateGrid();
+
+        // Make functions available globally
+        window.copyToClipboard = copyToClipboard;
+        window.toggleDarkMode = toggleDarkMode;
+        window.toggleSize = toggleSize;
+    </script>
+</body>
+</html>
