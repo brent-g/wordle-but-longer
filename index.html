@@ -133,13 +133,14 @@
     <div class="instructions">
         <h3>How to use:</h3>
         <ul>
-            <li><strong>UPPERCASE letters</strong> = Green pixels (correct position) = 10 points each</li>
-            <li><strong>lowercase letters</strong> = Yellow pixels (present, wrong position) = 5 points each</li>
+            <li><strong>UPPERCASE letters</strong> = Primary color (default: Green 🟩) = 10 points each</li>
+            <li><strong>lowercase letters</strong> = Secondary color (default: Yellow 🟨) = 5 points each</li>
             <li>Each letter is drawn as pixel art!</li>
             <li>Click "Copy to Clipboard" to share like Wordle!</li>
             <li><strong>3x3 Size:</strong> Fewer emojis = better chance of matte appearance in Discord</li>
             <li><strong>5x5 Size:</strong> More detailed letters but may appear glossy in Discord</li>
-            <li><strong>3D Mode:</strong> Adds side shadows (🟫/🟧) for depth! All lines padded to same width.</li>
+            <li><strong>3D Mode:</strong> Adds side shadows for depth! All lines padded to same width.</li>
+            <li><strong>🎨 Customize Colors:</strong> Pick any color for letters and shadows!</li>
         </ul>
     </div>
 
@@ -222,6 +223,25 @@
         let darkMode = false;
         let use3x3 = false;
         let use3D = false;
+        
+        // Default colors
+        let greenColor = '🟩';
+        let yellowColor = '🟨';
+        let greenShadow = '🟫';
+        let yellowShadow = '🟧';
+        
+        // Available color options (emojis)
+        const colorOptions = {
+            '🟩': 'Green',
+            '🟨': 'Yellow', 
+            '🟧': 'Orange',
+            '🟥': 'Red',
+            '🟦': 'Blue',
+            '🟪': 'Purple',
+            '🟫': 'Brown',
+            '⬛': 'Black',
+            '⬜': 'White'
+        };
 
         function createWordleGrid(text) {
             if (!text) return '<p style="color: #999;">Type something to see the pixel art...</p>';
@@ -264,7 +284,7 @@
                     const isUpperCase = originalChar >= 'A' && originalChar <= 'Z';
                     const pattern = patterns[char] || patterns[' '];
                     const colorClass = isUpperCase ? 'green' : 'yellow';
-                    const emoji = isUpperCase ? '🟩' : '🟨';
+                    const emoji = isUpperCase ? greenColor : yellowColor;
                     
                     if (i > 0) {
                         for (let row = 0; row < gridSize; row++) {
@@ -301,19 +321,29 @@
                             newRow.push(currentBlock);
                             
                             // Add shadow to the right of colored blocks, but only if next position is empty
-                            if ((currentBlock === '🟩' || currentBlock === '🟨')) {
+                            if ((currentBlock === greenColor || currentBlock === yellowColor)) {
                                 // Check if next block is empty (we can add shadow)
                                 if (nextBlock === emptySquare) {
-                                    const shadowColor = currentBlock === '🟩' ? '🟫' : '🟧';
+                                    const shadowColor = currentBlock === greenColor ? greenShadow : yellowShadow;
                                     newRow.push(shadowColor);
                                     col++; // Skip the next position since we're replacing it with shadow
                                 }
                             }
                         }
+                        
+                        // Add shadow on the far right if the last block in this row is colored
+                        const lastBlock = emojiGrid[row][emojiGrid[row].length - 1];
+                        if (lastBlock === greenColor || lastBlock === yellowColor) {
+                            const shadowColor = lastBlock === greenColor ? greenShadow : yellowShadow;
+                            newRow.push(shadowColor);
+                        }
+                        
                         iso3DGrid.push(newRow);
                     }
                     
                     emojiGrid = iso3DGrid;
+                } else {
+                    // No modifications for 2D mode
                 }
                 
                 // Track max width
@@ -368,6 +398,48 @@
             html += `<button class="copy-button" onclick="toggleSize()" style="margin-left: 10px;">${sizeIcon} ${sizeText}</button>`;
             html += `<button class="copy-button" onclick="toggle3D()" style="margin-left: 10px;">${depthIcon} ${depthText}</button>`;
             html += '</div>';
+            
+            html += '<div style="margin-top: 15px; padding: 15px; background: #1a1a1a; border-radius: 8px;">';
+            html += '<div style="margin-bottom: 10px; color: #6aaa64; font-weight: bold;">🎨 Color Customization</div>';
+            html += '<div style="display: flex; flex-wrap: wrap; gap: 10px;">';
+            html += '<div style="flex: 1; min-width: 200px;">';
+            html += '<label style="display: block; margin-bottom: 5px; font-size: 14px;">UPPERCASE Color: ${greenColor}</label>';
+            html += '<select id="greenPicker" onchange="updateGreenColor(this.value)" style="width: 100%; padding: 8px; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 4px; font-size: 16px;">';
+            Object.entries(colorOptions).forEach(([emoji, name]) => {
+                const selected = emoji === greenColor ? 'selected' : '';
+                html += `<option value="${emoji}" ${selected}>${emoji} ${name}</option>`;
+            });
+            html += '</select>';
+            html += '</div>';
+            html += '<div style="flex: 1; min-width: 200px;">';
+            html += '<label style="display: block; margin-bottom: 5px; font-size: 14px;">UPPERCASE Shadow: ${greenShadow}</label>';
+            html += '<select id="greenShadowPicker" onchange="updateGreenShadow(this.value)" style="width: 100%; padding: 8px; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 4px; font-size: 16px;">';
+            Object.entries(colorOptions).forEach(([emoji, name]) => {
+                const selected = emoji === greenShadow ? 'selected' : '';
+                html += `<option value="${emoji}" ${selected}>${emoji} ${name}</option>`;
+            });
+            html += '</select>';
+            html += '</div>';
+            html += '<div style="flex: 1; min-width: 200px;">';
+            html += '<label style="display: block; margin-bottom: 5px; font-size: 14px;">lowercase Color: ${yellowColor}</label>';
+            html += '<select id="yellowPicker" onchange="updateYellowColor(this.value)" style="width: 100%; padding: 8px; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 4px; font-size: 16px;">';
+            Object.entries(colorOptions).forEach(([emoji, name]) => {
+                const selected = emoji === yellowColor ? 'selected' : '';
+                html += `<option value="${emoji}" ${selected}>${emoji} ${name}</option>`;
+            });
+            html += '</select>';
+            html += '</div>';
+            html += '<div style="flex: 1; min-width: 200px;">';
+            html += '<label style="display: block; margin-bottom: 5px; font-size: 14px;">lowercase Shadow: ${yellowShadow}</label>';
+            html += '<select id="yellowShadowPicker" onchange="updateYellowShadow(this.value)" style="width: 100%; padding: 8px; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 4px; font-size: 16px;">';
+            Object.entries(colorOptions).forEach(([emoji, name]) => {
+                const selected = emoji === yellowShadow ? 'selected' : '';
+                html += `<option value="${emoji}" ${selected}>${emoji} ${name}</option>`;
+            });
+            html += '</select>';
+            html += '</div>';
+            html += '</div>';
+            html += '</div>';
             html += `<div class="shareable-preview">${currentShareableText}</div>`;
             
             return html;
@@ -385,6 +457,26 @@
 
         function toggle3D() {
             use3D = !use3D;
+            updateGrid();
+        }
+        
+        function updateGreenColor(color) {
+            greenColor = color;
+            updateGrid();
+        }
+        
+        function updateGreenShadow(color) {
+            greenShadow = color;
+            updateGrid();
+        }
+        
+        function updateYellowColor(color) {
+            yellowColor = color;
+            updateGrid();
+        }
+        
+        function updateYellowShadow(color) {
+            yellowShadow = color;
             updateGrid();
         }
 
@@ -420,6 +512,10 @@
         window.toggleDarkMode = toggleDarkMode;
         window.toggleSize = toggleSize;
         window.toggle3D = toggle3D;
+        window.updateGreenColor = updateGreenColor;
+        window.updateGreenShadow = updateGreenShadow;
+        window.updateYellowColor = updateYellowColor;
+        window.updateYellowShadow = updateYellowShadow;
     </script>
 </body>
 </html>
