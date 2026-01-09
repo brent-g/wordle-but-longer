@@ -139,6 +139,7 @@
             <li>Click "Copy to Clipboard" to share like Wordle!</li>
             <li><strong>3x3 Size:</strong> Fewer emojis = better chance of matte appearance in Discord</li>
             <li><strong>5x5 Size:</strong> More detailed letters but may appear glossy in Discord</li>
+            <li><strong>3D Mode:</strong> Adds side shadows (🟫/🟧) for depth! All lines padded to same width.</li>
         </ul>
     </div>
 
@@ -220,6 +221,7 @@
         let currentShareableText = '';
         let darkMode = false;
         let use3x3 = false;
+        let use3D = false;
 
         function createWordleGrid(text) {
             if (!text) return '<p style="color: #999;">Type something to see the pixel art...</p>';
@@ -245,12 +247,16 @@
             // Create shareable text header
             currentShareableText = `Wordle ${text.replace(/ /g, '').length}/${totalLetters}\n\n`;
             
+            // Track maximum width for padding
+            let maxWidth = 0;
+            let allEmojiGrids = [];
+            
             // Process each word separately
             for (let wordIndex = 0; wordIndex < words.length; wordIndex++) {
                 const word = words[wordIndex];
                 const chars = word.toUpperCase().split('');
                 const grid = Array(gridSize).fill('').map(() => '');
-                const emojiGrid = Array(gridSize).fill('').map(() => '');
+                let emojiGrid = Array(gridSize).fill('').map(() => []);
                 
                 for (let i = 0; i < chars.length; i++) {
                     const char = chars[i];
@@ -263,7 +269,7 @@
                     if (i > 0) {
                         for (let row = 0; row < gridSize; row++) {
                             grid[row] += '<span class="pixel"></span>'; // Space between letters
-                            emojiGrid[row] += emptySquare;
+                            emojiGrid[row].push(emptySquare);
                         }
                     }
                     
@@ -271,14 +277,66 @@
                         for (let col = 0; col < pattern[row].length; col++) {
                             if (pattern[row][col] === '1') {
                                 grid[row] += `<span class="pixel ${colorClass}"></span>`;
-                                emojiGrid[row] += emoji;
+                                emojiGrid[row].push(emoji);
                             } else {
                                 grid[row] += '<span class="pixel"></span>';
-                                emojiGrid[row] += emptySquare;
+                                emojiGrid[row].push(emptySquare);
                             }
                         }
                     }
                 }
+                
+                // Add 3D side shadows if enabled (without shifting or distorting letters)
+                if (use3D) {
+                    const iso3DGrid = [];
+                    
+                    for (let row = 0; row < gridSize; row++) {
+                        const newRow = [];
+                        
+                        for (let col = 0; col < emojiGrid[row].length; col++) {
+                            const currentBlock = emojiGrid[row][col];
+                            const nextBlock = col < emojiGrid[row].length - 1 ? emojiGrid[row][col + 1] : null;
+                            
+                            // Add the current block
+                            newRow.push(currentBlock);
+                            
+                            // Add shadow to the right of colored blocks, but only if next position is empty
+                            if ((currentBlock === '🟩' || currentBlock === '🟨')) {
+                                // Check if next block is empty (we can add shadow)
+                                if (nextBlock === emptySquare) {
+                                    const shadowColor = currentBlock === '🟩' ? '🟫' : '🟧';
+                                    newRow.push(shadowColor);
+                                    col++; // Skip the next position since we're replacing it with shadow
+                                }
+                            }
+                        }
+                        iso3DGrid.push(newRow);
+                    }
+                    
+                    emojiGrid = iso3DGrid;
+                }
+                
+                // Track max width
+                const currentWidth = Math.max(...emojiGrid.map(row => row.length));
+                maxWidth = Math.max(maxWidth, currentWidth);
+                
+                allEmojiGrids.push({
+                    emojiGrid,
+                    grid,
+                    gridSize
+                });
+            }
+            
+            // Now pad all grids to maxWidth and build output
+            for (let wordIndex = 0; wordIndex < allEmojiGrids.length; wordIndex++) {
+                const { emojiGrid, grid, gridSize } = allEmojiGrids[wordIndex];
+                
+                // Pad each row to maxWidth
+                const paddedEmojiGrid = emojiGrid.map(row => {
+                    const currentWidth = row.length;
+                    const padding = Array(maxWidth - currentWidth).fill(emptySquare);
+                    return [...row, ...padding];
+                });
                 
                 // Add this word's grid to HTML
                 for (let row = 0; row < gridSize; row++) {
@@ -286,10 +344,10 @@
                 }
                 
                 // Add this word's emoji grid to shareable text
-                currentShareableText += emojiGrid.join('\n');
+                currentShareableText += paddedEmojiGrid.map(row => row.join('')).join('\n');
                 
                 // Add line break between words if not the last word
-                if (wordIndex < words.length - 1) {
+                if (wordIndex < allEmojiGrids.length - 1) {
                     html += '<div style="height: 10px;"></div>'; // Visual spacing
                     currentShareableText += '\n\n';
                 }
@@ -301,11 +359,14 @@
             const modeText = darkMode ? 'Light Mode' : 'Dark Mode';
             const sizeIcon = use3x3 ? '🔍' : '🔎';
             const sizeText = use3x3 ? '5x5 Size' : '3x3 Size';
+            const depthIcon = use3D ? '📦' : '🎨';
+            const depthText = use3D ? '2D Mode' : '3D Mode';
             
             html += '<div style="margin-top: 15px;">';
             html += '<button class="copy-button" onclick="copyToClipboard()">📋 Copy to Clipboard</button>';
             html += `<button class="copy-button" onclick="toggleDarkMode()" style="margin-left: 10px;">${modeIcon} ${modeText}</button>`;
             html += `<button class="copy-button" onclick="toggleSize()" style="margin-left: 10px;">${sizeIcon} ${sizeText}</button>`;
+            html += `<button class="copy-button" onclick="toggle3D()" style="margin-left: 10px;">${depthIcon} ${depthText}</button>`;
             html += '</div>';
             html += `<div class="shareable-preview">${currentShareableText}</div>`;
             
@@ -319,6 +380,11 @@
 
         function toggleSize() {
             use3x3 = !use3x3;
+            updateGrid();
+        }
+
+        function toggle3D() {
+            use3D = !use3D;
             updateGrid();
         }
 
@@ -353,7 +419,7 @@
         window.copyToClipboard = copyToClipboard;
         window.toggleDarkMode = toggleDarkMode;
         window.toggleSize = toggleSize;
+        window.toggle3D = toggle3D;
     </script>
 </body>
 </html>
- 
