@@ -133,13 +133,11 @@
     <div class="instructions">
         <h3>How to use:</h3>
         <ul>
-            <li><strong>UPPERCASE letters</strong> = Primary color (default: Green 🟩) = 10 points each</li>
-            <li><strong>lowercase letters</strong> = Secondary color (default: Yellow 🟨) = 5 points each</li>
-            <li>Each letter is drawn as pixel art!</li>
-            <li>Click "Copy to Clipboard" to share like Wordle!</li>
+            <li><strong>Letter Mode:</strong> Type text - UPPERCASE = Primary color (🟩), lowercase = Secondary color (🟨)</li>
+            <li><strong>Custom Mode:</strong> Click blocks to cycle through colors and build your own Wordle grid!</li>
             <li><strong>3x3 Size:</strong> Fewer emojis = better chance of matte appearance in Discord</li>
             <li><strong>5x5 Size:</strong> More detailed letters but may appear glossy in Discord</li>
-            <li><strong>3D Mode:</strong> Adds side shadows for depth! All lines padded to same width.</li>
+            <li><strong>3D Mode:</strong> Adds side shadows for depth! (Letter mode only)</li>
             <li><strong>🎨 Customize Colors:</strong> Pick any color for letters and shadows!</li>
         </ul>
     </div>
@@ -223,6 +221,11 @@
         let darkMode = false;
         let use3x3 = false;
         let use3D = false;
+        let customMode = false;
+        
+        // Custom mode state
+        let customRows = 6; // Default 6 rows like Wordle
+        let customGrid = []; // Will store the custom grid state
         
         // Default colors
         let greenColor = '🟩';
@@ -242,9 +245,105 @@
             '⬛': 'Black',
             '⬜': 'White'
         };
+        
+        // Calculate current Wordle number
+        // Wordle 1,665 was on January 9, 2026
+        function getWordleNumber() {
+            const wordleStart = new Date('2026-01-09'); // Wordle 1,665
+            const wordleStartNumber = 1665;
+            const today = new Date();
+            
+            // Calculate days difference
+            const diffTime = today - wordleStart;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            return wordleStartNumber + diffDays;
+        }
+        
+        // Initialize custom grid
+        function initCustomGrid() {
+            customGrid = [];
+            const emptySquare = darkMode ? '⬛' : '⬜';
+            for (let i = 0; i < customRows; i++) {
+                customGrid.push([emptySquare, emptySquare, emptySquare, emptySquare, emptySquare]);
+            }
+        }
+        
+        // Cycle block color in custom mode
+        function cycleBlockColor(row, col) {
+            const emptySquare = darkMode ? '⬛' : '⬜';
+            const current = customGrid[row][col];
+            
+            // Cycle: empty -> green -> yellow -> empty
+            if (current === emptySquare) {
+                customGrid[row][col] = greenColor;
+            } else if (current === greenColor) {
+                customGrid[row][col] = yellowColor;
+            } else {
+                customGrid[row][col] = emptySquare;
+            }
+            
+            renderCustomMode();
+        }
+        
+        // Render custom mode UI
+        function renderCustomMode() {
+            const emptySquare = darkMode ? '⬛' : '⬜';
+            const wordleNum = getWordleNumber().toLocaleString('en-US');
+            
+            const modeIcon = darkMode ? '☀️' : '🌙';
+            const modeText = darkMode ? 'Light Mode' : 'Dark Mode';
+            
+            let html = '<div class="score">Custom Wordle Grid Builder</div>';
+            
+            html += '<div style="margin: 15px 0;">';
+            html += '<button class="copy-button" onclick="toggleCustomMode()">← Back to Letter Mode</button>';
+            html += `<button class="copy-button" onclick="toggleDarkMode()" style="margin-left: 10px;">${modeIcon} ${modeText}</button>`;
+            html += '</div>';
+            
+            html += '<div style="margin: 20px 0;">';
+            html += '<label style="margin-right: 10px;">Number of rows:</label>';
+            html += '<input type="number" id="customRowsInput" min="1" max="12" value="' + customRows + '" onchange="updateCustomRows(this.value)" style="width: 60px; padding: 5px; background: #2a2a2a; color: white; border: 1px solid #444; border-radius: 4px;">';
+            html += '</div>';
+            
+            html += '<div style="margin: 20px 0;">';
+            
+            // Render clickable grid
+            for (let row = 0; row < customRows; row++) {
+                html += '<div style="margin: 5px 0;">';
+                for (let col = 0; col < 5; col++) {
+                    const block = customGrid[row][col];
+                    html += `<button onclick="cycleBlockColor(${row}, ${col})" style="font-size: 32px; width: 50px; height: 50px; margin: 2px; border: 2px solid #444; background: #1a1a1a; cursor: pointer; border-radius: 4px;">${block}</button>`;
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+            
+            // Add copy button
+            html += '<div style="margin-top: 15px;">';
+            html += '<button class="copy-button" onclick="copyToClipboard()">📋 Copy to Clipboard</button>';
+            html += '</div>';
+            
+            // Generate shareable text
+            currentShareableText = `Wordle ${wordleNum} ${customRows}/6\n\n`;
+            for (let row = 0; row < customRows; row++) {
+                currentShareableText += customGrid[row].join('') + '\n';
+            }
+            
+            // Add preview
+            html += `<div class="shareable-preview">${currentShareableText}</div>`;
+            
+            document.getElementById('result').innerHTML = html;
+        }
 
         function createWordleGrid(text) {
             if (!text) return '<p style="color: #999;">Type something to see the pixel art...</p>';
+            
+            // If in custom mode, render custom grid instead
+            if (customMode) {
+                renderCustomMode();
+                return;
+            }
             
             // Split by spaces to create separate words/lines
             const words = text.split(' ').filter(w => w.length > 0);
@@ -264,8 +363,11 @@
             let html = `<div class="score">Wordle ${text.replace(/ /g, '').length}/${totalLetters} (${correctLetters} correct, ${presentLetters} present)</div>`;
             html += '<div class="pixel-grid">';
             
+            // Get current Wordle number and format with comma
+            const wordleNum = getWordleNumber().toLocaleString('en-US');
+            
             // Create shareable text header
-            currentShareableText = `Wordle ${text.replace(/ /g, '').length}/${totalLetters}\n\n`;
+            currentShareableText = `Wordle ${wordleNum}\n\n`;
             
             // Track maximum width for padding
             let maxWidth = 0;
@@ -391,9 +493,12 @@
             const sizeText = use3x3 ? '5x5 Size' : '3x3 Size';
             const depthIcon = use3D ? '📦' : '🎨';
             const depthText = use3D ? '2D Mode' : '3D Mode';
+            const customIcon = customMode ? '✏️' : '🎯';
+            const customText = customMode ? 'Letter Mode' : 'Custom Mode';
             
             html += '<div style="margin-top: 15px;">';
             html += '<button class="copy-button" onclick="copyToClipboard()">📋 Copy to Clipboard</button>';
+            html += `<button class="copy-button" onclick="toggleCustomMode()" style="margin-left: 10px;">${customIcon} ${customText}</button>`;
             html += `<button class="copy-button" onclick="toggleDarkMode()" style="margin-left: 10px;">${modeIcon} ${modeText}</button>`;
             html += `<button class="copy-button" onclick="toggleSize()" style="margin-left: 10px;">${sizeIcon} ${sizeText}</button>`;
             html += `<button class="copy-button" onclick="toggle3D()" style="margin-left: 10px;">${depthIcon} ${depthText}</button>`;
@@ -447,7 +552,21 @@
 
         function toggleDarkMode() {
             darkMode = !darkMode;
-            updateGrid();
+            if (customMode) {
+                // Update empty squares in custom grid when switching dark mode
+                const oldEmpty = !darkMode ? '⬛' : '⬜';
+                const newEmpty = darkMode ? '⬛' : '⬜';
+                for (let row = 0; row < customRows; row++) {
+                    for (let col = 0; col < 5; col++) {
+                        if (customGrid[row][col] === oldEmpty) {
+                            customGrid[row][col] = newEmpty;
+                        }
+                    }
+                }
+                renderCustomMode();
+            } else {
+                updateGrid();
+            }
         }
 
         function toggleSize() {
@@ -460,24 +579,64 @@
             updateGrid();
         }
         
+        function toggleCustomMode() {
+            customMode = !customMode;
+            if (customMode) {
+                initCustomGrid();
+                renderCustomMode();
+            } else {
+                updateGrid();
+            }
+        }
+        
+        function updateCustomRows(value) {
+            customRows = parseInt(value) || 6;
+            initCustomGrid();
+            renderCustomMode();
+        }
+        
         function updateGreenColor(color) {
             greenColor = color;
-            updateGrid();
+            if (customMode) {
+                // Update existing green blocks in custom grid
+                for (let row = 0; row < customRows; row++) {
+                    for (let col = 0; col < 5; col++) {
+                        if (customGrid[row][col] === '🟩') {
+                            customGrid[row][col] = greenColor;
+                        }
+                    }
+                }
+                renderCustomMode();
+            } else {
+                updateGrid();
+            }
         }
         
         function updateGreenShadow(color) {
             greenShadow = color;
-            updateGrid();
+            if (!customMode) updateGrid();
         }
         
         function updateYellowColor(color) {
             yellowColor = color;
-            updateGrid();
+            if (customMode) {
+                // Update existing yellow blocks in custom grid
+                for (let row = 0; row < customRows; row++) {
+                    for (let col = 0; col < 5; col++) {
+                        if (customGrid[row][col] === '🟨') {
+                            customGrid[row][col] = yellowColor;
+                        }
+                    }
+                }
+                renderCustomMode();
+            } else {
+                updateGrid();
+            }
         }
         
         function updateYellowShadow(color) {
             yellowShadow = color;
-            updateGrid();
+            if (!customMode) updateGrid();
         }
 
         async function copyToClipboard() {
@@ -512,6 +671,9 @@
         window.toggleDarkMode = toggleDarkMode;
         window.toggleSize = toggleSize;
         window.toggle3D = toggle3D;
+        window.toggleCustomMode = toggleCustomMode;
+        window.updateCustomRows = updateCustomRows;
+        window.cycleBlockColor = cycleBlockColor;
         window.updateGreenColor = updateGreenColor;
         window.updateGreenShadow = updateGreenShadow;
         window.updateYellowColor = updateYellowColor;
